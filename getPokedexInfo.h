@@ -10,11 +10,12 @@ class getPokedexInfo{
         updatePokedex& update;
 
     public:
-        // construct an update pokdex object so we can make calls to it?
+        // pass the updatePokedex object by reference
+        // this lets us use updatePokedex member functions
         getPokedexInfo(updatePokedex& update);
 
         void getMoves(const string& name, const string& generation);
-        void getAbility(const string& name, const string& generation);
+        void getAbility(const string& name);
         void getLocations(const string& name, const string& generation);
 
 };
