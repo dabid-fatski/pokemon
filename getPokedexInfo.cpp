@@ -52,6 +52,7 @@ void getPokedexInfo::getMoves(const string& name, const string& generation){
         vector<moveInfo> moves;
         for (auto& move : pokemon["moves"]){
             for (auto& version : move["version_group_details"]){
+                // get the generation
                 if (version["version_group"]["name"] == generation){
                     moves.push_back({move["move"]["name"], version["level_learned_at"], version["move_learn_method"]["name"]});
                 }
@@ -86,4 +87,37 @@ void getPokedexInfo::getMoves(const string& name, const string& generation){
         }
         return;
     }
+}
+
+void getPokedexInfo::getAbility(const string& name){
+    // update pokedex
+    update.getPokemon(name);
+
+    ifstream data("pokemon.json");
+
+    if (!data.is_open()){
+        throw runtime_error("Could not open Pokemon.json");
+    }
+
+    json pokemonData = json::parse(data);
+
+    data.close();
+
+    // find the pokemon
+
+    for (auto& pokemon : pokemonData["results"]){
+        if (pokemon["name"] != name){
+            continue;
+        }
+        
+        for (auto& ability : pokemon["abilities"]){
+            if (ability["is_hidden"] == false){
+                cout << ability["ability"]["name"] << endl;
+            } else {
+                cout << ability["ability"]["name"] << "\t" << " Hidden ability (Gen V+)" << endl;
+            }
+        }
+        return;
+    }
+    return;
 }
