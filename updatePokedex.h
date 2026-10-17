@@ -15,4 +15,5 @@ class updatePokedex{
         void getPokedex();
         void getGeneration();
         void getPokemon(const string& name);
+        void getLocation(const string& name);
 };

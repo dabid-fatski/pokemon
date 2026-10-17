@@ -126,3 +126,46 @@ void updatePokedex::getPokemon(const string& name){
 
     cout << "That is not a known pokemon" << endl;
 }
+
+void updatePokedex::getLocation(const string& name){
+    // get pokemon if we dont have
+    getPokemon(name);
+    
+    // load json
+    
+    ifstream data("pokemon.json");
+
+    json pokemonData = json::parse(data);
+
+    if (!data.is_open()){
+        throw runtime_error("Could not open pokemon.json");
+    }
+
+    data.close();
+
+    for (auto& pokemon : pokemonData["results"]){
+        if (pokemon["name"] == name){
+            if (pokemon["location_area_encounters"].contains("location_area")){
+                cout << "Already have the location" << endl;
+                return;
+            }
+
+            // otherwise we need to get it
+            string url = pokemon["location_area_encounters"];
+            json pokemonLocation = fetchData(url);
+            pokemon["location_area_encounters"] = pokemonLocation;
+
+            ofstream file("pokemon.json");
+
+            if (!file.is_open()){
+                throw runtime_error("Could not open pokemon.json");
+            }
+            
+            file << pokemonData.dump(4);
+            file.close();
+
+            cout << "Did an API call for the location of " << name << endl;
+            return;
+        }
+    }
+}
