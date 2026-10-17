@@ -119,7 +119,7 @@ void updatePokedex::getPokemon(const string& name){
             file << pokemonData.dump(4);
             file.close();
 
-            cout << pokemon.dump(4) << endl;
+            cout << "Did an API call for " << name << endl;
             return;
         }
     }
