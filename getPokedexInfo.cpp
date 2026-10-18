@@ -42,52 +42,47 @@ void getPokedexInfo::getMoves(const string& name, const string& generation){
 
     data.close();
 
-    // find the pokemon
+    json& pokemon = pokemonData[name];
 
-    for (auto& pokemon : pokemonData["results"]){
-        if (pokemon["name"] != name){
-            continue;
-        }
-
-        vector<moveInfo> moves;
-        for (auto& move : pokemon["moves"]){
-            for (auto& version : move["version_group_details"]){
-                // get the generation
-                if (version["version_group"]["name"] == generation){
-                    moves.push_back({move["move"]["name"], version["level_learned_at"], version["move_learn_method"]["name"]});
-                }
+    vector<moveInfo> moves;
+    for (auto& move : pokemon["moves"]){
+        for (auto& version : move["version_group_details"]){
+            // get the generation
+            if (version["version_group"]["name"] == generation){
+                moves.push_back({move["move"]["name"], version["level_learned_at"], version["move_learn_method"]["name"]});
             }
         }
-        sort(moves.begin(), moves.end(), [](const moveInfo& a, const moveInfo& b){
-            auto priority = [](const string& method){
-                if (method == "level-up") return 0;
-                if (method == "machine") return 1;
-                if (method == "tutor") return 2;
-                return 3;
-            };
-            int aPrio = priority(a.method);
-            int bPrio = priority(b.method);
-
-            // sort by level up vs machine first
-            if (aPrio != bPrio){
-                return aPrio < bPrio;
-            }
-            
-            // sort the level ups
-            if (a.method == "level-up" && a.level != b.level){
-                return a.level < b.level;
-            }
-            
-            // all other moves sorted alphabetically
-            return a.name < b.name;
-        });
-        
-        for (const auto& move : moves){
-            cout << move.name << '\t' << move.level << '\t' << move.method << endl;
-        }
-        return;
     }
+    sort(moves.begin(), moves.end(), [](const moveInfo& a, const moveInfo& b){
+        auto priority = [](const string& method){
+            if (method == "level-up") return 0;
+            if (method == "machine") return 1;
+            if (method == "tutor") return 2;
+            return 3;
+        };
+        int aPrio = priority(a.method);
+        int bPrio = priority(b.method);
+
+        // sort by level up vs machine first
+        if (aPrio != bPrio){
+            return aPrio < bPrio;
+        }
+        
+        // sort the level ups
+        if (a.method == "level-up" && a.level != b.level){
+            return a.level < b.level;
+        }
+        
+        // all other moves sorted alphabetically
+        return a.name < b.name;
+    });
+    
+    for (const auto& move : moves){
+        cout << move.name << '\t' << move.level << '\t' << move.method << endl;
+    }
+    return;
 }
+
 
 void getPokedexInfo::getAbility(const string& name){
     // update pokedex
@@ -103,21 +98,18 @@ void getPokedexInfo::getAbility(const string& name){
 
     data.close();
 
-    // find the pokemon
-
-    for (auto& pokemon : pokemonData["results"]){
-        if (pokemon["name"] != name){
-            continue;
-        }
+    json& pokemon = pokemonData[name];
         
-        for (auto& ability : pokemon["abilities"]){
-            if (ability["is_hidden"] == false){
-                cout << ability["ability"]["name"] << endl;
-            } else {
-                cout << ability["ability"]["name"] << "\t" << " Hidden ability (Gen V+)" << endl;
-            }
+    for (auto& ability : pokemon["abilities"]){
+        if (ability["is_hidden"] == false){
+            cout << ability["ability"]["name"] << endl;
+        } else {
+            cout << ability["ability"]["name"] << "\t" << " Hidden ability (Gen V+)" << endl;
         }
-        return;
     }
     return;
+}
+
+void getPokedexInfo::getLocations(const string& name, const string& generation){
+    
 }

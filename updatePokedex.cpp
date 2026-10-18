@@ -70,13 +70,19 @@ updatePokedex::~updatePokedex(){
 void updatePokedex::getPokedex(){   
     json pokemonData = fetchData(APIurl);
 
+    json pokedex = json::object();
+
+    for (const auto& pokemon : pokemonData["results"]){
+        pokedex[pokemon["name"]] = pokemon;
+    }
+
     ofstream file("pokemon.json");
 
     if (!file.is_open()){
         throw runtime_error("Could not open pokemon.json");
     }
 
-    file << pokemonData.dump(4);
+    file << pokedex.dump(4);
     file.close();
 
     cout << "Pokedex has been updated" << endl;
@@ -92,36 +98,31 @@ void updatePokedex::getPokemon(const string& name){
     json pokemonData = json::parse(data);
     data.close();
 
-    // find the pokemon
-    for (auto& pokemon : pokemonData["results"]){
-        cout << pokemon["name"] << endl;
-        if (pokemon["name"] == name){
-            // if we already have the data
-            if (pokemon.contains("id")){
-                cout << "already have the pokemon" << endl;
-                return;
-            }
+    json& pokemon = pokemonData[name];
 
-            cout << "don't have the pokemon" << endl;
-            // otherwise request it
-            string url = pokemon["url"];
-            json pokemonDetails = fetchData(url);
+    if (pokemon.contains("id")){
+        cout << "Already have the pokemon" << endl;
+        return;
+    } else {
+        cout << "Don't have the pokemon" << endl;
+        // otherwise request it
+        string url = pokemon["url"];
+        json pokemonDetails = fetchData(url);
 
-            // update the json
-            pokemon = pokemonDetails;
+        // update the json
+        pokemon = pokemonDetails;
 
-            ofstream file("pokemon.json");
+        ofstream file("pokemon.json");
 
-            if (!file.is_open()){
-                throw runtime_error("Couldn't open pokemon.json");
-            }
-
-            file << pokemonData.dump(4);
-            file.close();
-
-            cout << "Did an API call for " << name << endl;
-            return;
+        if (!file.is_open()){
+            throw runtime_error("Couldn't open pokemon.json");
         }
+
+        file << pokemonData.dump(4);
+        file.close();
+
+        cout << "Did an API call for " << name << endl;
+        return;
     }
 
     cout << "That is not a known pokemon" << endl;
@@ -143,29 +144,27 @@ void updatePokedex::getLocation(const string& name){
 
     data.close();
 
-    for (auto& pokemon : pokemonData["results"]){
-        if (pokemon["name"] == name){
-            if (pokemon["location_area_encounters"].contains("location_area")){
-                cout << "Already have the location" << endl;
-                return;
-            }
+    json& pokemon = pokemonData[name];
 
-            // otherwise we need to get it
-            string url = pokemon["location_area_encounters"];
-            json pokemonLocation = fetchData(url);
-            pokemon["location_area_encounters"] = pokemonLocation;
-
-            ofstream file("pokemon.json");
-
-            if (!file.is_open()){
-                throw runtime_error("Could not open pokemon.json");
-            }
-            
-            file << pokemonData.dump(4);
-            file.close();
-
-            cout << "Did an API call for the location of " << name << endl;
-            return;
-        }
+    if (pokemon["location_area_encounters"].contains("location_area")){
+        cout << "Already have the location" << endl;
+        return;
     }
+
+    // otherwise we need to get it
+    string url = pokemon["location_area_encounters"];
+    json pokemonLocation = fetchData(url);
+    pokemon["location_area_encounters"] = pokemonLocation;
+
+    ofstream file("pokemon.json");
+
+    if (!file.is_open()){
+        throw runtime_error("Could not open pokemon.json");
+    }
+    
+    file << pokemonData.dump(4);
+    file.close();
+
+    cout << "Did an API call for the location of " << name << endl;
+    return;
 }
