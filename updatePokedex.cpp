@@ -146,7 +146,7 @@ void updatePokedex::getLocation(const string& name){
 
     json& pokemon = pokemonData[name];
 
-    if (pokemon["location_area_encounters"].contains("location_area")){
+    if (pokemon["location_area_encounters"].is_array()){
         cout << "Already have the location" << endl;
         return;
     }
