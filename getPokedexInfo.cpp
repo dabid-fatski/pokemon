@@ -2,6 +2,7 @@
 #include <nlohmann/json_fwd.hpp>
 #include <vector>
 #include <string>
+#include <unordered_set>
 #include <algorithm>
 #include <cctype>
 #include <stdexcept>
@@ -111,5 +112,63 @@ void getPokedexInfo::getAbility(const string& name){
 }
 
 void getPokedexInfo::getLocations(const string& name, const string& generation){
-    
+    // update pokedex
+    update.getPokemon(name);
+    update.getLocation(name);
+
+    ifstream data("pokemon.json");
+
+    if (!data.is_open()){
+        throw runtime_error("Could not open pokemon.json");
+    }
+
+    json pokemonData = json::parse(data);
+
+    data.close();
+
+    json& pokemon = pokemonData[name];
+
+    for (auto& location : pokemon["location_area_encounters"]){
+        json& version_details = location["version_details"];
+        for (auto& version : version_details){
+            json& versionName = version["version"]["name"];
+            if (versionName == generation){
+                int min_level = 101;
+                int max_level = 0;
+                int min_chance = 101;
+                int max_chance = 0;
+                unordered_set<string> encounter_methods;
+
+                for (auto& method : version["encounter_details"]){
+                    if (method["min_level"] < min_level){
+                        min_level = method["min_level"];
+                    }
+                    if (method["max_level"] > max_level){
+                        max_level = method["max_level"];
+                    }
+
+                    if (method["chance"] < min_chance){
+                        min_chance = method["chance"];
+                    }
+                    if (method["chance"] > max_chance){
+                        max_chance = method["chance"];
+                    }
+                    encounter_methods.insert(method["method"]["name"]);
+                }
+
+                cout << location["location_area"]["name"] << "\t";
+
+                cout << "Encounter Methods: ";
+                for (auto& method : encounter_methods){
+                    cout << method << " ";
+                }
+
+                cout << "\t" << "Min/Max encounter level: " << min_level << "/" << max_level << "\t"
+                << "Min/Max encounter chance: " << min_chance << "/" << max_chance << "\t" << endl;
+
+                return;
+            }
+        }
+    }
+    cout << "This pokemon does not appear in this generation" << endl;
 }
