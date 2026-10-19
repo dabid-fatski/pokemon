@@ -172,3 +172,25 @@ void getPokedexInfo::getLocations(const string& name, const string& generation){
     }
     cout << "This pokemon does not appear in this generation" << endl;
 }
+
+void getPokedexInfo::getStats(const string& name){
+    // get pokemon
+    update.getPokemon(name);
+
+    ifstream data("pokemon.json");
+
+    if (!data.is_open()){
+        throw runtime_error("Could not open pokemon.json");
+    }
+
+    json pokemonData = json::parse(data);
+
+    data.close();
+
+    json& pokemon = pokemonData[name];
+
+    cout << "Stats for " << name << endl;
+    for (auto& stat : pokemon["stats"]){
+        cout << stat["stat"]["name"] << ": " << stat["base_stat"] << endl;
+    }
+}
