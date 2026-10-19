@@ -16,6 +16,89 @@
 using namespace std;
 using json = nlohmann::ordered_json;
 
+static unordered_map<string, unordered_set<string>> generationMap = {
+    {"red-blue", {"red", "blue"}},
+    {"red", {"red"}},
+    {"blue", {"blue"}},
+    {"yellow", {"yellow"}},
+    {"gold-silver", {"gold", "silver"}},
+    {"gold", {"gold"}},
+    {"silver", {"silver"}},
+    {"crystal", {"crystal"}},
+    {"ruby-sapphire", {"ruby", "sapphire"}},
+    {"ruby", {"ruby"}},
+    {"sapphire", {"sapphire"}},
+    {"emerald", {"emerald"}},
+    {"firered-leafgreen", {"firered", "leafgreen"}},
+    {"firered", {"firered"}},
+    {"leafgreen", {"leaftreen"}},
+    {"diamond-pearl", {"diamond", "pearl"}},
+    {"diamond", {"diamond"}},
+    {"pearl", {"pearl"}},
+    {"platinum", {"platinum"}},
+    {"heartgold-soulsilver", {"heartgold", "soulsilver"}},
+    {"black-white", {"black", "white"}},
+    {"black", {"black"}},
+    {"white", {"white"}},
+    {"colosseum", {"colosseum"}},
+    {"xd", {"xd"}},
+    {"black-2-white-2", {"black2", "white2"}},
+    {"black-2", {"black2"}},
+    {"white-2", {"white2"}},
+    {"x-y", {"x", "y"}},
+    {"omega-ruby-alpha-sapphire", {"omegaruby", "alphasapphire", "6"}},
+    {"omega-ruby", {"omegaruby"}},
+    {"alpha-sapphire", {"alphasapphire"}},
+    {"sun-moon", {"sun", "moon"}},
+    {"ultra-sun-ultra-moon", {"ultrasun", "ultramoon"}},
+    {"ultra-sun", {"ultrasun"}},
+    {"ultra-moon", {"ultramoon"}},
+    {"lets-go-pikachu-lets-go-eevee", {"letsgopikachu", "letsgoeevee", "pikachu", "eevee"}},
+    {"lets-go-pikachu", {"letsgopikachu", "pikachu"}},
+    {"lets-go-eevee", {"letsgoeevee", "eevee"}},
+    {"sword-shield", {"sword", "shield"}},
+    {"sword", {"sword"}},
+    {"shield", {"shield"}},
+    {"brilliant-diamond-shining-pearl", {"brilliantdiamond", "shiningpearl"}},
+    {"brilliant-diamond", {"brilliantdiamond"}},
+    {"shining-pearl", {"shiningpearl"}},
+    {"scarlet-violet", {"scarlet", "violet"}},
+    {"scarlet", {"scarlet"}},
+    {"violet", {"violet"}}
+};
+
+
+// normalize the generation name
+string normalize(const string& input){
+    string gen;
+
+    for (unsigned char c: input){
+        if (isspace(c) || c == '-'){
+            continue;
+        }
+        gen += tolower(c);
+    }
+    return gen;
+}
+
+// find the matching key
+string findGen(const string& input){
+    // normalize the gen name
+    string genName = normalize(input);
+
+    for (const auto& [apiName, gen] : generationMap){
+        if (normalize(apiName) == genName){
+            return apiName;
+        }
+
+        if (gen.find(genName) != gen.end()){
+            return apiName;
+        }
+    }
+
+    throw invalid_argument("Unknown generation");
+}
+
 struct moveInfo{
     string name;
     int level;
@@ -31,6 +114,8 @@ getPokedexInfo::getPokedexInfo(updatePokedex& update)
 void getPokedexInfo::getMoves(const string& name, const string& generation){
     // load the pokemon
     update.getPokemon(name);
+    
+    string genName = findGen(generation);
     
     // load json
     ifstream data("pokemon.json");
@@ -49,7 +134,7 @@ void getPokedexInfo::getMoves(const string& name, const string& generation){
     for (auto& move : pokemon["moves"]){
         for (auto& version : move["version_group_details"]){
             // get the generation
-            if (version["version_group"]["name"] == generation){
+            if (version["version_group"]["name"] == genName){
                 moves.push_back({move["move"]["name"], version["level_learned_at"], version["move_learn_method"]["name"]});
             }
         }
@@ -116,6 +201,8 @@ void getPokedexInfo::getLocations(const string& name, const string& generation){
     update.getPokemon(name);
     update.getLocation(name);
 
+    string genName = findGen(generation);
+
     ifstream data("pokemon.json");
 
     if (!data.is_open()){
@@ -132,7 +219,7 @@ void getPokedexInfo::getLocations(const string& name, const string& generation){
         json& version_details = location["version_details"];
         for (auto& version : version_details){
             json& versionName = version["version"]["name"];
-            if (versionName == generation){
+            if (versionName == genName){
                 int min_level = 101;
                 int max_level = 0;
                 int min_chance = 101;
