@@ -53,14 +53,14 @@ json fetchData(string url){
     return json::parse(response);
 }
 
-updatePokedex::updatePokedex(){
+updatePokedex::updatePokedex()
+    : APIurl {"https://pokeapi.co/api/v2/pokemon?limit=100000&offset=0"}
+{
     CURLcode result = curl_global_init(CURL_GLOBAL_DEFAULT);
 
     if (result != CURLE_OK) {
         throw runtime_error("Failed to initialize CURL");
     }
-
-    APIurl = "https://pokeapi.co/api/v2/pokemon?limit=100000&offset=0";
 }
 
 updatePokedex::~updatePokedex(){

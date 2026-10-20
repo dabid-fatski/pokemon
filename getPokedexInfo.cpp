@@ -31,31 +31,31 @@ string normalize(const string& input){
 }
 
 // fuzzy matching (levenshtein distance)
-int levenshtein(const string& original, const string& check) {
+int levenshtein(const string& original, const string& check){
     const int r = original.length();
     const int c = check.length();
 
-    vector<vector<int>> dp(r + 1, vector<int>(c + 1, 0));
+    vector<int> prev(min(r+1, c+1));
+    vector<int> cur(min(r+1, c+1));
 
-    for (int i = 0; i <= r; i++) {
-        dp[i][0] = i;
+    for (int i = 0; i < c+1; i++){
+        prev[i] = i;
     }
 
-    for (int j = 0; j < c+1; j++) {
-        dp[0][j] = j;
-    }
-    for (int i = 1; i < r+1; i++) {
-        for (int j = 1; j < c+1; j++) {
-            int cost = (original[i - 1] == check[j - 1]) ? 0 : 1;
+    // since only use the previous row, can optimize from a whole matrix to 2 vectors
+    for (int i = 1; i < r+1; i++){
+        cur[0] = i;
+        for (int j = 1; j < c+1; j++){
+            int cost = (original[i-1] == check[j-1]) ? 0 : 1;
 
-            // up delete
-            // left add
-            // top left replace
-            dp[i][j] = min({dp[i][j - 1] + 1, dp[i - 1][j] + 1, dp[i - 1][j - 1] + cost});
+            // cur[j-1] = add
+            // prev[i] = delete
+            // prev[i-1] = replace (cost depends if letters match)
+            cur[j] = min({cur[j-1] + 1, prev[i] + 1, prev[i-1] + cost});
         }
+        prev = cur;
     }
-
-    return dp[r][c];
+    return prev[c];
 }
 
 // find the matching key

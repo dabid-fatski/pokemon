@@ -6,7 +6,7 @@ using namespace std;
 
 class updatePokedex{
     private:
-        string APIurl;
+        const string APIurl;
 
     public:
         updatePokedex();

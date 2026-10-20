@@ -15,7 +15,7 @@ class getPokedexInfo{
         getPokedexInfo(updatePokedex& update);
 
         void getMoves(const string& name, const string& generation);
-        void getAbility(const string& name);
         void getLocations(const string& name, const string& generation);
+        void getAbility(const string& name);
         void getStats(const string& name);
 };
