@@ -1,7 +1,7 @@
 #include <iostream>
-#include <nlohmann/json_fwd.hpp>
 #include <vector>
 #include <string>
+#include <unordered_map>
 #include <unordered_set>
 #include <algorithm>
 #include <cctype>
@@ -12,67 +12,16 @@
 
 #include "updatePokedex.h"
 #include "getPokedexInfo.h"
+#include "genMap.h"
 
 using namespace std;
 using json = nlohmann::ordered_json;
-
-static unordered_map<string, unordered_set<string>> generationMap = {
-    {"red-blue", {"red", "blue"}},
-    {"red", {"red"}},
-    {"blue", {"blue"}},
-    {"yellow", {"yellow"}},
-    {"gold-silver", {"gold", "silver"}},
-    {"gold", {"gold"}},
-    {"silver", {"silver"}},
-    {"crystal", {"crystal"}},
-    {"ruby-sapphire", {"ruby", "sapphire"}},
-    {"ruby", {"ruby"}},
-    {"sapphire", {"sapphire"}},
-    {"emerald", {"emerald"}},
-    {"firered-leafgreen", {"firered", "leafgreen"}},
-    {"firered", {"firered"}},
-    {"leafgreen", {"leaftreen"}},
-    {"diamond-pearl", {"diamond", "pearl"}},
-    {"diamond", {"diamond"}},
-    {"pearl", {"pearl"}},
-    {"platinum", {"platinum"}},
-    {"heartgold-soulsilver", {"heartgold", "soulsilver"}},
-    {"black-white", {"black", "white"}},
-    {"black", {"black"}},
-    {"white", {"white"}},
-    {"colosseum", {"colosseum"}},
-    {"xd", {"xd"}},
-    {"black-2-white-2", {"black2", "white2"}},
-    {"black-2", {"black2"}},
-    {"white-2", {"white2"}},
-    {"x-y", {"x", "y"}},
-    {"omega-ruby-alpha-sapphire", {"omegaruby", "alphasapphire", "6"}},
-    {"omega-ruby", {"omegaruby"}},
-    {"alpha-sapphire", {"alphasapphire"}},
-    {"sun-moon", {"sun", "moon"}},
-    {"ultra-sun-ultra-moon", {"ultrasun", "ultramoon"}},
-    {"ultra-sun", {"ultrasun"}},
-    {"ultra-moon", {"ultramoon"}},
-    {"lets-go-pikachu-lets-go-eevee", {"letsgopikachu", "letsgoeevee", "pikachu", "eevee"}},
-    {"lets-go-pikachu", {"letsgopikachu", "pikachu"}},
-    {"lets-go-eevee", {"letsgoeevee", "eevee"}},
-    {"sword-shield", {"sword", "shield"}},
-    {"sword", {"sword"}},
-    {"shield", {"shield"}},
-    {"brilliant-diamond-shining-pearl", {"brilliantdiamond", "shiningpearl"}},
-    {"brilliant-diamond", {"brilliantdiamond"}},
-    {"shining-pearl", {"shiningpearl"}},
-    {"scarlet-violet", {"scarlet", "violet"}},
-    {"scarlet", {"scarlet"}},
-    {"violet", {"violet"}}
-};
-
 
 // normalize the generation name
 string normalize(const string& input){
     string gen;
 
-    for (unsigned char c: input){
+    for (const unsigned char c: input){
         if (isspace(c) || c == '-'){
             continue;
         }
@@ -81,22 +30,74 @@ string normalize(const string& input){
     return gen;
 }
 
-// find the matching key
-string findGen(const string& input){
-    // normalize the gen name
-    string genName = normalize(input);
+// fuzzy matching (levenshtein distance)
+int levenshtein(const string& original, const string& check) {
+    const int r = original.length();
+    const int c = check.length();
 
-    for (const auto& [apiName, gen] : generationMap){
-        if (normalize(apiName) == genName){
-            return apiName;
-        }
+    vector<vector<int>> dp(r + 1, vector<int>(c + 1, 0));
 
-        if (gen.find(genName) != gen.end()){
-            return apiName;
+    for (int i = 0; i <= r; i++) {
+        dp[i][0] = i;
+    }
+
+    for (int j = 0; j < c+1; j++) {
+        dp[0][j] = j;
+    }
+    for (int i = 1; i < r+1; i++) {
+        for (int j = 1; j < c+1; j++) {
+            int cost = (original[i - 1] == check[j - 1]) ? 0 : 1;
+
+            // up delete
+            // left add
+            // top left replace
+            dp[i][j] = min({dp[i][j - 1] + 1, dp[i - 1][j] + 1, dp[i - 1][j - 1] + cost});
         }
     }
 
-    throw invalid_argument("Unknown generation");
+    return dp[r][c];
+}
+
+// find the matching key
+string findGen(const string& input, const unordered_map<string, string>& genMap){
+    const string genName = normalize(input);
+
+    // if it exists, just return it instantly
+    const auto found = genMap.find(genName);
+
+    if (found != genMap.end()){
+        return found->second;
+    }
+    
+    // if it doesnt exist in the default map, levenshtein distnace it
+    int diff = INT_MAX;
+    string guess;
+    string apiName;
+
+    for (const auto& [name, original] : genMap){
+        const int distance = levenshtein(name, genName);
+
+        if (distance < diff){
+            diff = distance;
+            guess = name;
+            apiName = original;
+        }
+    }
+
+    // throw ones that are too wrong
+    if (diff <= 3){
+        char input;
+        cout << "Did you mean " << guess << "? (y/n)" << endl;
+        cin >> input;
+
+        if (tolower(input) == 'y'){
+            return apiName;
+        }
+
+        throw invalid_argument("Unknown generation/game");
+    }
+
+    throw invalid_argument("Unknown generation/game");
 }
 
 struct moveInfo{
@@ -115,7 +116,7 @@ void getPokedexInfo::getMoves(const string& name, const string& generation){
     // load the pokemon
     update.getPokemon(name);
     
-    string genName = findGen(generation);
+    const string genName = findGen(generation, moveGenMap);
     
     // load json
     ifstream data("pokemon.json");
@@ -124,11 +125,11 @@ void getPokedexInfo::getMoves(const string& name, const string& generation){
         throw runtime_error("Could not open pokemon.json");
     }
 
-    json pokemonData = json::parse(data);
+    const json pokemonData = json::parse(data);
 
     data.close();
 
-    json& pokemon = pokemonData[name];
+    const json& pokemon = pokemonData[name];
 
     vector<moveInfo> moves;
     for (auto& move : pokemon["moves"]){
@@ -140,14 +141,14 @@ void getPokedexInfo::getMoves(const string& name, const string& generation){
         }
     }
     sort(moves.begin(), moves.end(), [](const moveInfo& a, const moveInfo& b){
-        auto priority = [](const string& method){
+        const auto priority = [](const string& method){
             if (method == "level-up") return 0;
             if (method == "machine") return 1;
             if (method == "tutor") return 2;
             return 3;
         };
-        int aPrio = priority(a.method);
-        int bPrio = priority(b.method);
+        const int aPrio = priority(a.method);
+        const int bPrio = priority(b.method);
 
         // sort by level up vs machine first
         if (aPrio != bPrio){
@@ -169,39 +170,12 @@ void getPokedexInfo::getMoves(const string& name, const string& generation){
     return;
 }
 
-
-void getPokedexInfo::getAbility(const string& name){
-    // update pokedex
-    update.getPokemon(name);
-
-    ifstream data("pokemon.json");
-
-    if (!data.is_open()){
-        throw runtime_error("Could not open Pokemon.json");
-    }
-
-    json pokemonData = json::parse(data);
-
-    data.close();
-
-    json& pokemon = pokemonData[name];
-        
-    for (auto& ability : pokemon["abilities"]){
-        if (ability["is_hidden"] == false){
-            cout << ability["ability"]["name"] << endl;
-        } else {
-            cout << ability["ability"]["name"] << "\t" << " Hidden ability (Gen V+)" << endl;
-        }
-    }
-    return;
-}
-
 void getPokedexInfo::getLocations(const string& name, const string& generation){
     // update pokedex
     update.getPokemon(name);
     update.getLocation(name);
 
-    string genName = findGen(generation);
+    const string genName = findGen(generation, locationGenMap);
 
     ifstream data("pokemon.json");
 
@@ -209,16 +183,16 @@ void getPokedexInfo::getLocations(const string& name, const string& generation){
         throw runtime_error("Could not open pokemon.json");
     }
 
-    json pokemonData = json::parse(data);
+    const json pokemonData = json::parse(data);
 
     data.close();
 
-    json& pokemon = pokemonData[name];
+    const json& pokemon = pokemonData[name];
 
-    for (auto& location : pokemon["location_area_encounters"]){
-        json& version_details = location["version_details"];
-        for (auto& version : version_details){
-            json& versionName = version["version"]["name"];
+    for (const auto& location : pokemon["location_area_encounters"]){
+        const json& version_details = location["version_details"];
+        for (const auto& version : version_details){
+            const json& versionName = version["version"]["name"];
             if (versionName == genName){
                 int min_level = 101;
                 int max_level = 0;
@@ -260,6 +234,32 @@ void getPokedexInfo::getLocations(const string& name, const string& generation){
     cout << "This pokemon does not appear in this generation" << endl;
 }
 
+void getPokedexInfo::getAbility(const string& name){
+    // update pokedex
+    update.getPokemon(name);
+
+    ifstream data("pokemon.json");
+
+    if (!data.is_open()){
+        throw runtime_error("Could not open Pokemon.json");
+    }
+
+    const json pokemonData = json::parse(data);
+
+    data.close();
+
+    const json& pokemon = pokemonData[name];
+        
+    for (const auto& ability : pokemon["abilities"]){
+        if (ability["is_hidden"] == false){
+            cout << ability["ability"]["name"] << endl;
+        } else {
+            cout << ability["ability"]["name"] << "\t" << " Hidden ability (Gen V+)" << endl;
+        }
+    }
+    return;
+}
+
 void getPokedexInfo::getStats(const string& name){
     // get pokemon
     update.getPokemon(name);
@@ -270,14 +270,14 @@ void getPokedexInfo::getStats(const string& name){
         throw runtime_error("Could not open pokemon.json");
     }
 
-    json pokemonData = json::parse(data);
+    const json pokemonData = json::parse(data);
 
     data.close();
 
-    json& pokemon = pokemonData[name];
+    const json& pokemon = pokemonData[name];
 
     cout << "Stats for " << name << endl;
-    for (auto& stat : pokemon["stats"]){
+    for (const auto& stat : pokemon["stats"]){
         cout << stat["stat"]["name"] << ": " << stat["base_stat"] << endl;
     }
 }
