@@ -15,7 +15,10 @@ class updatePokedex{
         ~updatePokedex();
 
         void getPokedex();
+        void checkPokedex();
+
         void getGeneration();
         void getPokemon(const string& name);
         json getLocation(const string& url);
+        json getMoves(json& pokemonData);
 };
