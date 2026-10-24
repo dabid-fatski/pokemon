@@ -7,6 +7,7 @@
 #include <cctype>
 #include <stdexcept>
 #include <fstream>
+#include <sstream>
 #include <curl/curl.h>
 #include <nlohmann/json.hpp>
 
@@ -17,26 +18,13 @@
 using namespace std;
 using json = nlohmann::ordered_json;
 
-// normalize the generation name
-string normalize(const string& input){
-    string gen;
-
-    for (const unsigned char c: input){
-        if (isspace(c) || c == '-'){
-            continue;
-        }
-        gen += tolower(c);
-    }
-    return gen;
-}
-
 // fuzzy matching (levenshtein distance)
 int levenshtein(const string& original, const string& check){
     const int r = original.length();
     const int c = check.length();
 
-    vector<int> prev(min(r+1, c+1));
-    vector<int> cur(min(r+1, c+1));
+    vector<int> prev(c+1);
+    vector<int> cur(c+1);
 
     for (int i = 0; i < c+1; i++){
         prev[i] = i;
@@ -51,54 +39,41 @@ int levenshtein(const string& original, const string& check){
             // cur[j-1] = add
             // prev[i] = delete
             // prev[i-1] = replace (cost depends if letters match)
-            cur[j] = min({cur[j-1] + 1, prev[i] + 1, prev[i-1] + cost});
+            cur[j] = min({cur[j-1] + 1, prev[j] + 1, prev[j-1] + cost});
         }
-        prev = cur;
+        prev.swap(cur);
     }
     return prev[c];
 }
 
+// normalize the generation name
+string getPokedexInfo::normalize(const string& input){
+    string gen;
+
+    for (const unsigned char c: input){
+        if (isspace(c) || c == '-' || c == '/'){
+            continue;
+        }
+        gen += tolower(c);
+    }
+    return gen;
+}
+
 // find the matching key
 string findGen(const string& input, const unordered_map<string, string>& genMap){
-    const string genName = normalize(input);
+    const string genName = input;
 
-    // if it exists, just return it instantly
+    // get api name
     const auto found = genMap.find(genName);
 
-    if (found != genMap.end()){
-        return found->second;
-    }
-    
-    // if it doesnt exist in the default map, levenshtein distnace it
-    int diff = INT_MAX;
-    string guess;
-    string apiName;
-
-    for (const auto& [name, original] : genMap){
-        const int distance = levenshtein(name, genName);
-
-        if (distance < diff){
-            diff = distance;
-            guess = name;
-            apiName = original;
-        }
+    if (found == genMap.end()){
+        throw runtime_error("Unknown generation or game: " + input);
     }
 
-    // throw ones that are too wrong
-    if (diff <= 3){
-        char input;
-        cout << "Did you mean " << guess << "? (y/n)" << endl;
-        cin >> input;
-
-        if (tolower(input) == 'y'){
-            return apiName;
-        }
-
-        throw invalid_argument("Unknown generation/game");
-    }
-
-    throw invalid_argument("Unknown generation/game");
+    return found->second;
 }
+
+// make a fuzzy for pokemon names
 
 struct moveInfo{
     string name;
@@ -106,178 +81,118 @@ struct moveInfo{
     string method;
 };
 
+// constructor
 getPokedexInfo::getPokedexInfo(updatePokedex& update)
     : update(update)
 {
-
-}
-
-void getPokedexInfo::getMoves(const string& name, const string& generation){
-    // load the pokemon
-    update.getPokemon(name);
-    
-    const string genName = findGen(generation, moveGenMap);
-    
-    // load json
     ifstream data("pokemon.json");
 
     if (!data.is_open()){
         throw runtime_error("Could not open pokemon.json");
     }
 
-    const json pokemonData = json::parse(data);
+    data >> pokemonData;
+}
 
-    data.close();
-
-    const json& pokemon = pokemonData[name];
-
-    vector<moveInfo> moves;
-    for (auto& move : pokemon["moves"]){
-        for (auto& version : move["version_group_details"]){
-            // get the generation
-            if (version["version_group"]["name"] == genName){
-                moves.push_back({move["move"]["name"], version["level_learned_at"], version["move_learn_method"]["name"]});
-            }
-        }
-    }
-    sort(moves.begin(), moves.end(), [](const moveInfo& a, const moveInfo& b){
-        const auto priority = [](const string& method){
-            if (method == "level-up") return 0;
-            if (method == "machine") return 1;
-            if (method == "tutor") return 2;
-            return 3;
-        };
-        const int aPrio = priority(a.method);
-        const int bPrio = priority(b.method);
-
-        // sort by level up vs machine first
-        if (aPrio != bPrio){
-            return aPrio < bPrio;
-        }
-        
-        // sort the level ups
-        if (a.method == "level-up" && a.level != b.level){
-            return a.level < b.level;
-        }
-        
-        // all other moves sorted alphabetically
-        return a.name < b.name;
-    });
+string getPokedexInfo::getMoves(const string& name, const string& generation){
+    // get the api game name
+    const string gameName = findGen(generation, moveGenMap);
     
+    const json& pokemon = pokemonData.at(name);
+    
+    const json& pkmnMoves = pokemon["moves"];
+
+    if (pkmnMoves.find(gameName) == pkmnMoves.end()){
+        return "This pokemon does not appear in this game";
+    }
+    
+    // ostringstream saves it to memory instead of cout which jus toutputs it instantly
+    // creates an empty stream
+    // everything output << is saved and then returned as if a document
+    ostringstream output;
+
+    const json& moves = pokemon["moves"][gameName];
+
     for (const auto& move : moves){
-        cout << move.name << '\t' << move.level << '\t' << move.method << endl;
-    }
-    return;
-}
-
-void getPokedexInfo::getLocations(const string& name, const string& generation){
-    // update pokedex
-    update.getPokemon(name);
-    update.getLocation(name);
-
-    const string genName = findGen(generation, locationGenMap);
-
-    ifstream data("pokemon.json");
-
-    if (!data.is_open()){
-        throw runtime_error("Could not open pokemon.json");
-    }
-
-    const json pokemonData = json::parse(data);
-
-    data.close();
-
-    const json& pokemon = pokemonData[name];
-
-    for (const auto& location : pokemon["location_area_encounters"]){
-        const json& version_details = location["version_details"];
-        for (const auto& version : version_details){
-            const json& versionName = version["version"]["name"];
-            if (versionName == genName){
-                int min_level = 101;
-                int max_level = 0;
-                int min_chance = 101;
-                int max_chance = 0;
-                unordered_set<string> encounter_methods;
-
-                for (auto& method : version["encounter_details"]){
-                    if (method["min_level"] < min_level){
-                        min_level = method["min_level"];
-                    }
-                    if (method["max_level"] > max_level){
-                        max_level = method["max_level"];
-                    }
-
-                    if (method["chance"] < min_chance){
-                        min_chance = method["chance"];
-                    }
-                    if (method["chance"] > max_chance){
-                        max_chance = method["chance"];
-                    }
-                    encounter_methods.insert(method["method"]["name"]);
-                }
-
-                cout << location["location_area"]["name"] << "\t";
-
-                cout << "Encounter Methods: ";
-                for (auto& method : encounter_methods){
-                    cout << method << " ";
-                }
-
-                cout << "\t" << "Min/Max encounter level: " << min_level << "/" << max_level << "\t"
-                << "Min/Max encounter chance: " << min_chance << "/" << max_chance << "\t" << endl;
-
-                return;
-            }
-        }
-    }
-    cout << "This pokemon does not appear in this generation" << endl;
-}
-
-void getPokedexInfo::getAbility(const string& name){
-    // update pokedex
-    update.getPokemon(name);
-
-    ifstream data("pokemon.json");
-
-    if (!data.is_open()){
-        throw runtime_error("Could not open Pokemon.json");
-    }
-
-    const json pokemonData = json::parse(data);
-
-    data.close();
-
-    const json& pokemon = pokemonData[name];
+        string method = move["method"];
+        output << move["name"] << '\t';
         
-    for (const auto& ability : pokemon["abilities"]){
-        if (ability["is_hidden"] == false){
-            cout << ability["ability"]["name"] << endl;
+        if (method == "level-up"){
+            output << "lvl: " << move["level"] << endl;
         } else {
-            cout << ability["ability"]["name"] << "\t" << " Hidden ability (Gen V+)" << endl;
+            output << method << endl;
         }
     }
-    return;
+
+    return output.str();
 }
 
-void getPokedexInfo::getStats(const string& name){
-    // get pokemon
-    update.getPokemon(name);
+string getPokedexInfo::getLocations(const string& name, const string& generation){
+    // get the api game name
+    const string gameName = findGen(generation, locationGenMap);
 
-    ifstream data("pokemon.json");
+    const json& pokemon = pokemonData.at(name);
 
-    if (!data.is_open()){
-        throw runtime_error("Could not open pokemon.json");
+    // check if the location exists
+    const json& encounters = pokemon["location_area_encounters"];
+
+    if (encounters.find(gameName) == encounters.end()){
+        return "This pokemon doesn't appear in this game.";
     }
 
-    const json pokemonData = json::parse(data);
+    ostringstream output;
 
-    data.close();
+    const json& game = pokemon["location_area_encounters"][gameName];
 
-    const json& pokemon = pokemonData[name];
+    for (const auto& [locationName, location] : game.items()){
+        output << locationName << " " <<
+        "Method: " << location["method"] << ' ' <<
+        "Min chance: " << location["min_chance"] << ' ' <<
+        "Max chance: " << location["max_chance"] << ' ' <<
+        "Min level: " << location["min_level"] << ' ' <<
+        "Max level: " << location["max_level"]; 
+        
+        const json& conditions = location["conditions"];
 
-    cout << "Stats for " << name << endl;
+        if (!conditions.empty()){
+            for (const auto& condition: location["conditions"]){
+                output << condition << ' ';
+            } 
+        }
+        
+        output << endl;
+    }
+   
+    return output.str();
+}
+
+string getPokedexInfo::getAbility(const string& name){
+
+    const json& pokemon = pokemonData.at(name);
+        
+    ostringstream output;
+
+    for (const auto& ability : pokemon["abilities"]){
+        output << ability["ability"]["name"].get<string>();
+
+        if (ability["is_hidden"]){
+            output << " Hidden ability (Gen V+)";
+        }
+        
+        output << endl;
+    }
+    return output.str();
+}
+
+string getPokedexInfo::getStats(const string& name){
+
+    const json& pokemon = pokemonData.at(name);
+
+    ostringstream output;
+
     for (const auto& stat : pokemon["stats"]){
-        cout << stat["stat"]["name"] << ": " << stat["base_stat"] << endl;
+        output << stat["stat"]["name"] << ": " << stat["base_stat"] << endl;
     }
+
+    return output.str();
 }
