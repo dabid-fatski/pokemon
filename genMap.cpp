@@ -7,73 +7,32 @@ using namespace std;
 
 // Used for moves: version group names
 const unordered_map<string, string> moveGenMap = {
-    // Generation I
-    {"redblue", "red-blue"},
-    {"red", "red-blue"},
-    {"blue", "red-blue"},
-    {"yellow", "yellow"},
+    // Gen I
+    {"Gen I", "yellow"},
 
-    // Generation II
-    {"goldsilver", "gold-silver"},
-    {"gold", "gold-silver"},
-    {"silver", "gold-silver"},
-    {"crystal", "crystal"},
+    // Gen II
+    {"Gen II", "crystal"},
 
-    // Generation III
-    {"rubysapphire", "ruby-sapphire"},
-    {"ruby", "ruby-sapphire"},
-    {"sapphire", "ruby-sapphire"},
-    {"emerald", "emerald"},
-    {"fireredleafgreen", "firered-leafgreen"},
-    {"firered", "firered-leafgreen"},
-    {"leafgreen", "firered-leafgreen"},
+    // Gen III
+    {"Gen III", "emerald"},
 
-    // Generation IV
-    {"diamondpearl", "diamond-pearl"},
-    {"diamond", "diamond-pearl"},
-    {"pearl", "diamond-pearl"},
-    {"platinum", "platinum"},
-    {"heartgoldsoulsilver", "heartgold-soulsilver"},
-    {"heartgold", "heartgold-soulsilver"},
-    {"soulsilver", "heartgold-soulsilver"},
+    // Gen IV
+    {"Gen IV", "heartgold-soulsilver"},
 
-    // Generation V
-    {"blackwhite", "black-white"},
-    {"black", "black-white"},
-    {"white", "black-white"},
-    {"black2white2", "black-2-white-2"},
-    {"black2", "black-2-white-2"},
-    {"white2", "black-2-white-2"},
+    // Gen V
+    {"Gen V", "black-2-white-2"},
 
-    // Generation VI
-    {"xy", "x-y"},
-    {"x", "x-y"},
-    {"y", "x-y"},
-    {"omegarubyalphasapphire", "omega-ruby-alpha-sapphire"},
-    {"omegaruby", "omega-ruby-alpha-sapphire"},
-    {"alphasapphire", "omega-ruby-alpha-sapphire"},
+    // Gen VI
+    {"Gen VI", "omega-ruby-alpha-sapphire"},
 
-    // Generation VII
-    {"sunmoon", "sun-moon"},
-    {"ultrasunultramoon", "ultra-sun-ultra-moon"},
-    {"ultrasun", "ultra-sun-ultra-moon"},
-    {"ultramoon", "ultra-sun-ultra-moon"},
-    {"letsgopikachuletsgoeevee", "lets-go-pikachu-lets-go-eevee"},
-    {"letsgopikachu", "lets-go-pikachu"},
-    {"letsgoeevee", "lets-go-eevee"},
+    // Gen VII
+    {"Gen VII", "ultra-sun-ultra-moon"},
 
-    // Generation VIII
-    {"swordshield", "sword-shield"},
-    {"sword", "sword-shield"},
-    {"shield", "sword-shield"},
-    {"brilliantdiamondshiningpearl", "brilliant-diamond-shining-pearl"},
-    {"brilliantdiamond", "brilliant-diamond-shining-pearl"},
-    {"shiningpearl", "brilliant-diamond-shining-pearl"},
+    // Gen VIII
+    {"Gen VIII", "brilliant-diamond-shining-pearl"},
 
-    // Generation IX
-    {"scarletviolet", "scarlet-violet"},
-    {"scarlet", "scarlet-violet"},
-    {"violet", "scarlet-violet"}
+    // Gen IX
+    {"Gen IX", "scarlet-violet"}
 };
 
 
