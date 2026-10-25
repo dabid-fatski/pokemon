@@ -53,7 +53,7 @@ void Window::setupUI(){
     could have not made them pointers, but if they are direct members, you could have a member object be a C++ member object and a Qt child widgit at the same time
     this would mean that once qt destroys the child widgit, c++ would try to destroy the member, but since it was already destroyed, undefined behavior or a crash happens
     */
-    QPushButton *searchButton = new QPushButton("Search Pokemon", this);
+    QPushButton * const searchButton = new QPushButton("Search Pokemon", this);
 
     // configure the widgets
     pokemonInput->setPlaceholderText("Enter a pokemon name");
@@ -81,11 +81,11 @@ void Window::setupUI(){
     locationsDisplay->setReadOnly(true);
 
     // create a central widget and layouts
-    QWidget *window = new QWidget(this);
+    QWidget * const window = new QWidget(this);
 
     // layouts
-    QVBoxLayout *mainLayout = new QVBoxLayout(window);
-    QHBoxLayout *displayLayout = new QHBoxLayout();
+    QVBoxLayout * const mainLayout = new QVBoxLayout(window);
+    QHBoxLayout *const displayLayout = new QHBoxLayout();
 
     // arrange the search widgets
     QHBoxLayout *searchLayout = new QHBoxLayout();
@@ -101,10 +101,10 @@ void Window::setupUI(){
     main layout is assigned to window (QWidget) which tells QT that it should organize it's contents using mainLayout
     "this" refers to QMainWindow, so if it's passed to another layout, it would be trying to override it
     */
-    QVBoxLayout *movesLayout = new QVBoxLayout();
-    QVBoxLayout *abilityLayout = new QVBoxLayout();
-    QVBoxLayout *statLayout = new QVBoxLayout();
-    QVBoxLayout *locationLayout = new QVBoxLayout();
+    QVBoxLayout * const movesLayout = new QVBoxLayout();
+    QVBoxLayout * const abilityLayout = new QVBoxLayout();
+    QVBoxLayout * const statLayout = new QVBoxLayout();
+    QVBoxLayout * const locationLayout = new QVBoxLayout();
 
     movesLayout->addWidget(new QLabel("Moves", window));
     movesLayout->addWidget(movesDisplay);
@@ -161,14 +161,13 @@ void Window::updateInfo(){
         const string game = pokedex.normalize(gameName.toStdString());
 
         // update the pokemon if needed
-        // becomes 60 ms because i have to open the file again
         update.getPokemon(pokemon);
 
         // get the information fron the cache
-        string moves = pokedex.getMoves(pokemon, generation);
-        string locations = pokedex.getLocations(pokemon, game);
-        string abilities = pokedex.getAbility(pokemon);
-        string stats = pokedex.getStats(pokemon);
+        const string moves = pokedex.getMoves(pokemon, generation);
+        const string locations = pokedex.getLocations(pokemon, game);
+        const string abilities = pokedex.getAbility(pokemon);
+        const string stats = pokedex.getStats(pokemon);
         
         movesDisplay->setPlainText(QString::fromStdString(moves));
         abilityDisplay->setPlainText(QString::fromStdString(abilities));
@@ -186,7 +185,7 @@ void Window::updateInfo(){
 }
 
 void Window::updateGames(){
-    int gen = generationSelect->currentIndex();
+    const int gen = generationSelect->currentIndex();
 
     if (gen == previous){
         return;

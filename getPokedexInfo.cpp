@@ -6,7 +6,6 @@
 #include <algorithm>
 #include <cctype>
 #include <stdexcept>
-#include <fstream>
 #include <sstream>
 #include <curl/curl.h>
 #include <nlohmann/json.hpp>
@@ -34,7 +33,7 @@ int levenshtein(const string& original, const string& check){
     for (int i = 1; i < r+1; i++){
         cur[0] = i;
         for (int j = 1; j < c+1; j++){
-            int cost = (original[i-1] == check[j-1]) ? 0 : 1;
+            const int cost = (original[i-1] == check[j-1]) ? 0 : 1;
 
             // cur[j-1] = add
             // prev[i] = delete
@@ -54,7 +53,7 @@ string getPokedexInfo::normalize(const string& input){
         if (isspace(c) || c == '-' || c == '/'){
             continue;
         }
-        gen += tolower(c);
+        gen += static_cast<char>(tolower(c));
     }
     return gen;
 }
@@ -85,20 +84,14 @@ struct moveInfo{
 getPokedexInfo::getPokedexInfo(updatePokedex& update)
     : update(update)
 {
-    ifstream data("pokemon.json");
 
-    if (!data.is_open()){
-        throw runtime_error("Could not open pokemon.json");
-    }
-
-    data >> pokemonData;
 }
 
-string getPokedexInfo::getMoves(const string& name, const string& generation){
+string getPokedexInfo::getMoves(const string& name, const string& generation) const{
     // get the api game name
     const string gameName = findGen(generation, moveGenMap);
     
-    const json& pokemon = pokemonData.at(name);
+    const json& pokemon = update.getData().at(name);
     
     const json& pkmnMoves = pokemon["moves"];
 
@@ -114,7 +107,7 @@ string getPokedexInfo::getMoves(const string& name, const string& generation){
     const json& moves = pokemon["moves"][gameName];
 
     for (const auto& move : moves){
-        string method = move["method"];
+        const string method = move["method"];
         output << move["name"] << '\t';
         
         if (method == "level-up"){
@@ -127,11 +120,11 @@ string getPokedexInfo::getMoves(const string& name, const string& generation){
     return output.str();
 }
 
-string getPokedexInfo::getLocations(const string& name, const string& generation){
+string getPokedexInfo::getLocations(const string& name, const string& generation) const{
     // get the api game name
     const string gameName = findGen(generation, locationGenMap);
 
-    const json& pokemon = pokemonData.at(name);
+    const json& pokemon = update.getData().at(name);
 
     // check if the location exists
     const json& encounters = pokemon["location_area_encounters"];
@@ -155,7 +148,7 @@ string getPokedexInfo::getLocations(const string& name, const string& generation
         const json& conditions = location["conditions"];
 
         if (!conditions.empty()){
-            for (const auto& condition: location["conditions"]){
+            for (const auto& condition: conditions){
                 output << condition << ' ';
             } 
         }
@@ -166,9 +159,9 @@ string getPokedexInfo::getLocations(const string& name, const string& generation
     return output.str();
 }
 
-string getPokedexInfo::getAbility(const string& name){
+string getPokedexInfo::getAbility(const string& name) const{
 
-    const json& pokemon = pokemonData.at(name);
+    const json& pokemon = update.getData().at(name);
         
     ostringstream output;
 
@@ -184,9 +177,9 @@ string getPokedexInfo::getAbility(const string& name){
     return output.str();
 }
 
-string getPokedexInfo::getStats(const string& name){
+string getPokedexInfo::getStats(const string& name) const{
 
-    const json& pokemon = pokemonData.at(name);
+    const json& pokemon = update.getData().at(name);
 
     ostringstream output;
 

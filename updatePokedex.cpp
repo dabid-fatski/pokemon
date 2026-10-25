@@ -14,12 +14,12 @@
 using namespace std;
 using json = nlohmann::ordered_json;
 
-size_t writeCallback(char* data, size_t size, size_t count, string* output){
+size_t writeCallback(const char* data, size_t size, size_t count, string* output){
 	output->append(data, size * count);
 	return size * count;
 }
 
-json fetchData(string url){
+json fetchData(const string& url){
     CURL* curl = curl_easy_init();
 
     if (!curl){
@@ -37,7 +37,7 @@ json fetchData(string url){
     // follow http redirects
     curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
 
-    CURLcode result = curl_easy_perform(curl);
+    const CURLcode result = curl_easy_perform(curl);
 
     long httpCode = 0;
     curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &httpCode);
@@ -58,94 +58,92 @@ json fetchData(string url){
 updatePokedex::updatePokedex()
     : APIurl {"https://pokeapi.co/api/v2/pokemon?limit=100000&offset=0"}
 {
-    CURLcode result = curl_global_init(CURL_GLOBAL_DEFAULT);
+    const CURLcode result = curl_global_init(CURL_GLOBAL_DEFAULT);
 
     if (result != CURLE_OK) {
         throw runtime_error("Failed to initialize CURL");
     }
 
-    checkPokedex();
+    loadPokedex();
+
+    if (pokedexData.empty()){
+        getPokedex();
+    }
 }
 
 updatePokedex::~updatePokedex(){
     curl_global_cleanup();
 }
 
-void updatePokedex::getPokedex(){
+void updatePokedex::loadPokedex(){
+    ifstream data("pokemon.json");
 
-    json pokemonData = fetchData(APIurl);
-
-    json pokedex = json::object();
-
-    // make checking pokemon O(1)
-    for (const auto& pokemon : pokemonData["results"]){
-        pokedex[pokemon["name"]] = pokemon;
+    if (!data.is_open()){
+        pokedexData = json::object();
+        return;
     }
 
-    ofstream file("pokemon.json");
+    try {
+        data >> pokedexData;
 
-    if (!file.is_open()){
+        if (!pokedexData.is_object()){
+            pokedexData = json::object();
+        }
+    } catch (const json::exception&){
+        pokedexData = json::object();
+    }
+}
+
+void updatePokedex::savePokedex(){
+    ofstream data("pokemon.json");
+
+    if (!data.is_open()){
         throw runtime_error("Could not open pokemon.json");
     }
 
-    file << pokedex.dump(4);
-    file.close();
+    data << pokedexData.dump(4);
+}
+
+const json& updatePokedex::getData() const{
+    return pokedexData;
+}
+
+void updatePokedex::getPokedex(){
+
+    const json pokemonData = fetchData(APIurl);
+
+    pokedexData = json::object();
+
+    // make checking pokemon O(1)
+    for (const auto& pokemon : pokemonData["results"]){
+        pokedexData[pokemon["name"]] = pokemon;
+    }
+
+    savePokedex();
 
     cout << "Pokedex has been updated" << endl;
 }
 
-void updatePokedex::checkPokedex(){
-    bool check = false;
-
-    ifstream data("pokemon.json");
-
-    if (!data.is_open()){
-        check = true;
-    } else {
-        try {
-            json pokemonData = json::parse(data);
-
-            if (!pokemonData.is_object() || pokemonData.empty()){
-                check = true;
-            }
-        } catch (const json::parse_error& e){
-            cerr << "Invalid pokemon.json: " << e.what() << endl;
-            check = true;
-        }
-    }
-    if (check){
-        getPokedex();
-    }
-}
-
 void updatePokedex::getPokemon(const string& name){
-    // see if there is a valid file
-    checkPokedex();
+    // check if the pokemon exists
+    const auto pokemonCheck = pokedexData.find(name);
     
-    // load json
-    ifstream data("pokemon.json");
-
-    if (!data.is_open()){
-        throw runtime_error("Couldn't open pokemon.json");
+    if (pokemonCheck == pokedexData.end()){
+        cout << "That's not a pokemon" << endl;
+        return;
     }
-    json pokemonData = json::parse(data);
-    data.close();
 
-    json& pokemon = pokemonData[name];
-
-    if (pokemon.contains("id")){
+    // see if we have the data for it already
+    if (pokedexData[name].contains("id")){
         cout << "Already have the pokemon" << endl;
         return;
     } else {
-        cout << "Don't have the pokemon" << endl;
-        // otherwise request it
-        string url = pokemon["url"];
+        // get the url
+        string url = pokedexData[name]["url"];
         json pokemonDetails = fetchData(url);
 
-        // update the json
-        pokemon = pokemonDetails;
+        json pokemon = pokemonDetails;
 
-        // get location
         url = pokemon["location_area_encounters"];
 
         // parse the locations
@@ -154,24 +152,19 @@ void updatePokedex::getPokemon(const string& name){
         // parse the moves
         pokemon["moves"] = getMoves(pokemon);
 
-        ofstream file("pokemon.json");
+        // update the json
+        pokedexData[name] = pokemon;
 
-        if (!file.is_open()){
-            throw runtime_error("Couldn't open pokemon.json");
-        }
-
-        file << pokemonData.dump(4);
-        file.close();
-
-        cout << "Did an API call for " << name << endl;
-        return;
+        // update the currently opened json
+        savePokedex();
     }
 
-    cout << "That is not a known pokemon" << endl;
+    cout << "Did an API call for " << name << endl;
+    return;
 }
 
-json updatePokedex::getLocation(const string& url){
-    json locationDetails = fetchData(url);
+json updatePokedex::getLocation(const string& url) const{
+    const json locationDetails = fetchData(url);
 
     struct Encounter{
         string method;
@@ -197,17 +190,17 @@ json updatePokedex::getLocation(const string& url){
     unordered_map<string, unordered_map<string, Encounter>> locationMap;
 
     for (const auto& location : locationDetails){
-        string locationName = location["location_area"]["name"];
+        const string locationName = location["location_area"]["name"];
 
         for (const auto& versionDetails : location["version_details"]){
-            string gameName = versionDetails["version"]["name"];
+            const string gameName = versionDetails["version"]["name"];
             
             for (const auto& encounterDetails : versionDetails["encounter_details"]){
-                string method = encounterDetails["method"]["name"];
+                const string method = encounterDetails["method"]["name"];
 
-                int chance = encounterDetails["chance"];
-                int min_level = encounterDetails["min_level"];
-                int max_level = encounterDetails["max_level"];
+                const int chance = encounterDetails["chance"];
+                const int min_level = encounterDetails["min_level"];
+                const int max_level = encounterDetails["max_level"];
 
                 auto& locations = locationMap[gameName];
                 auto check = locations.find(locationName);
@@ -275,7 +268,7 @@ json updatePokedex::getLocation(const string& url){
 }
 
 // parse moves
-json updatePokedex::getMoves(json& pokemonData){
+json updatePokedex::getMoves(json& pokemonData) const{
 
     struct Move{
         string moveName;
@@ -299,12 +292,12 @@ json updatePokedex::getMoves(json& pokemonData){
     unordered_map<string, unordered_map<string, vector<Move>>> moveMap;
 
     for (const auto& move : pokemonData["moves"]){
-        string moveName = move["move"]["name"];
+        const string moveName = move["move"]["name"];
 
         for (const auto& detail : move["version_group_details"]){
-            int level = detail["level_learned_at"];
-            string game = detail["version_group"]["name"];
-            string method = detail["move_learn_method"]["name"];
+            const int level = detail["level_learned_at"];
+            const string game = detail["version_group"]["name"];
+            const string method = detail["move_learn_method"]["name"];
 
             if (method == "level-up" && level == 0){
                 continue;
